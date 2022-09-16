@@ -1,0 +1,45 @@
+.DS_Store
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# virtualenv
+venv/
+
+# Pycharm project
+.idea
+snapshots
+*.pytorch
+*.tar.bz
+data
+.*.swp
+main_main.py
+*.pdf
+*/*.pdf
+
+# Device
+scripts-nas/.nfs00*
+*/.nfs00*
+*.DS_Store
+
+# results, logs, data
+output
+logs
+NAS_data
+*.log
+*.prof
+*.pth
+*.pkl
+*.png
+*.tex

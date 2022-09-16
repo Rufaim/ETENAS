@@ -1,0 +1,11 @@
+[
+  {
+    "type": "ReLU regions distance",
+    "args": {
+      "num_batch": 2,
+      "train_mode": false,
+      "batch": 150,
+      "corr_sign": 1
+    }
+  }
+]

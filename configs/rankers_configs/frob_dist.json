@@ -1,0 +1,19 @@
+[
+  {
+    "type": "Frobenius norm of NNGP",
+    "args": {
+      "num_batch": 2,
+      "train_mode": true,
+      "corr_sign": 1
+    }
+  },
+  {
+    "type": "ReLU regions distance",
+    "args": {
+      "num_batch": 2,
+      "train_mode": false,
+      "batch": 150,
+      "corr_sign": 1
+    }
+  }
+]

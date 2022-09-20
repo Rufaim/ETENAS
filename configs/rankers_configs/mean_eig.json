@@ -1,0 +1,18 @@
+[
+  {
+    "type": "Mean value of NNGP",
+    "args": {
+      "num_batch": 2,
+      "train_mode": true,
+      "corr_sign": 1
+    }
+  },
+  {
+    "type": "Eigenvalue score of NNGP",
+    "args": {
+      "num_batch": 2,
+      "train_mode": true,
+      "corr_sign": 1
+    }
+  }
+]

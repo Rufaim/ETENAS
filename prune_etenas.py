@@ -136,7 +136,7 @@ def parse_rankers_config(path):
 
 def prune_func_rank(rankers_list, arch_parameters, model_config, special_model_configs, train_loader, valid_loader,
                     special_dataloaders,
-                    edge_groups=None, init="kaiming_norm", repeat=1, precision=10, prune_number=1):
+                    edge_groups=None, init="kaiming_norm", repeat=1, prune_number=1):
     for alpha in arch_parameters:
         alpha[:, 0] = -INF
 
@@ -151,16 +151,25 @@ def prune_func_rank(rankers_list, arch_parameters, model_config, special_model_c
         special_networks_origins[r].set_alphas(arch_parameters)
 
     alpha_active = [(nn.functional.softmax(alpha, 1) > 0.01).float() for alpha in arch_parameters]
-    prune_number = min(prune_number,
-                       alpha_active[0][0].sum() - 1)  # adjust prune_number based on current remaining ops on each edge
-
-    active_parameter_indexes = [(idx_ct, idx_edge, idx_op)
-                                for idx_ct in range(len(arch_parameters))
-                                for idx_edge in range(arch_parameters[idx_ct].shape[0])
-                                for idx_op in range(arch_parameters[idx_ct].shape[1])
-                                if alpha_active[idx_ct][idx_edge].sum() != 1  # more than one op remaining
-                                if alpha_active[idx_ct][idx_edge, idx_op] > 0  # op is active
-                                ]
+    if edge_groups is None:
+        prune_number = min(prune_number,
+                           alpha_active[0][0].sum() - 1)  # adjust prune_number based on current remaining ops on each edge
+        active_parameter_indexes = [(idx_ct, idx_edge, idx_op)
+                                    for idx_ct in range(len(arch_parameters))
+                                    for idx_edge in range(arch_parameters[idx_ct].shape[0])
+                                    for idx_op in range(arch_parameters[idx_ct].shape[1])
+                                    if alpha_active[idx_ct][idx_edge].sum() != 1  # more than one op remaining
+                                    if alpha_active[idx_ct][idx_edge, idx_op] > 0  # op is active
+                                    ]
+    else:
+        active_parameter_indexes = [(idx_ct, idx_edge, idx_op)
+                                    for idx_ct in range(len(arch_parameters))
+                                    for group_st, group_end in edge_groups
+                                    for idx_edge in range(group_st, group_end)
+                                    for idx_op in range(arch_parameters[idx_ct].shape[1])
+                                    if group_end - group_st > prune_number
+                                    if alpha_active[idx_ct][idx_edge, idx_op] > 0  # op is active
+                                    ]
 
     edge_scores = []
     for edge_indexes in tqdm(active_parameter_indexes):
@@ -206,233 +215,20 @@ def prune_func_rank(rankers_list, arch_parameters, model_config, special_model_c
     edge_scores = sorted(edge_scores,
                          key=lambda tup: tup[1])  # list of (cell_idx, edge_idx, op_idx), [ntk_rank, regions_rank]
 
-    edge2choice = defaultdict(list)  # (cell_idx, edge_idx): list of (cell_idx, edge_idx, op_idx) of length prune_number
+    edge2choice = defaultdict(list)
     for (cell_idx, edge_idx, op_idx), _ in edge_scores:
-        if len(edge2choice[(cell_idx, edge_idx)]) < prune_number:
-            edge2choice[(cell_idx, edge_idx)].append(op_idx)
-    for cell_edge in edge2choice:
-        cell_idx, edge_idx = cell_edge
-        for op_idx in edge2choice[cell_edge]:
+        if edge_groups is None:
+            if len(edge2choice[(cell_idx, edge_idx)]) < prune_number:
+                edge2choice[(cell_idx, edge_idx)].append((cell_idx, edge_idx, op_idx))
+        else:
+            for group_st, group_end in edge_groups:
+                if group_st <= edge_idx < group_end and len(edge2choice[(group_st, group_end)]) < (group_end - group_st - prune_number):
+                    edge2choice[(group_st, group_end)].append((cell_idx, edge_idx, op_idx))
+    for choices in edge2choice.values():
+        for (cell_idx, edge_idx, op_idx) in choices:
             arch_parameters[cell_idx].data[edge_idx, op_idx] = -INF
 
     return arch_parameters
-
-
-def prune_func_rank_edge_groups(rankers_list, arch_parameters, model_config, special_model_configs, train_loader,
-                                valid_loader, special_dataloaders,
-                                edge_groups=None, init="kaiming_norm", repeat=1, precision=10, prune_number=1):
-    for alpha in arch_parameters:
-        alpha[:, 0] = -INF
-
-    # set neural networks
-    network_origin = get_cell_based_tiny_net(model_config).cuda().train()
-    # init_model(network_origin, init)
-    network_origin.set_alphas(arch_parameters)
-    special_networks_origins = {}
-    for r, c in special_model_configs.items():
-        special_networks_origins[r] = get_cell_based_tiny_net(c).cuda().train()
-        # init_model(special_networks_origins[r], init)
-        special_networks_origins[r].set_alphas(arch_parameters)
-
-    alpha_active = [(nn.functional.softmax(alpha, 1) > 0.01).float() for alpha in arch_parameters]
-    prune_number = min(prune_number,
-                       alpha_active[0][0].sum() - 1)  # adjust prune_number based on current remaining ops on each edge
-
-    active_parameter_indexes = [(idx_ct, idx_edge, idx_op)
-                                for idx_ct in range(len(arch_parameters))
-                                for idx_edge in range(arch_parameters[idx_ct].shape[0])
-                                for idx_op in range(arch_parameters[idx_ct].shape[1])
-                                # if alpha_active[idx_ct][idx_edge].sum() != 1  # more than one op remaining
-                                if alpha_active[idx_ct][idx_edge, idx_op] > 0  # op is active
-                                ]
-
-    edge_scores = []
-    for edge_indexes in tqdm(active_parameter_indexes):
-        (idx_ct, idx_edge, idx_op) = edge_indexes
-        _arch_param = [alpha.detach().clone() for alpha in arch_parameters]
-        _arch_param[idx_ct][idx_edge, idx_op] = -INF
-
-        network = get_cell_based_tiny_net(model_config).cuda().train()
-        special_networks = {r: get_cell_based_tiny_net(special_model_configs[r]).cuda().train()
-                            for r in special_model_configs
-                            }
-        _scores = []
-        for _ in range(repeat):
-            ### initializing networks for backward
-            init_model(network_origin, init + "_fanout" if init.startswith('kaiming') else init)
-            # make sure network_origin and network are identical
-            for param_ori, param in zip(network_origin.parameters(), network.parameters()):
-                param.data.copy_(param_ori.data)
-            network.set_alphas(_arch_param)
-
-            for k in special_networks_origins:
-                init_model(special_networks_origins[k], init + "_fanout" if init.startswith('kaiming') else init)
-                # make sure network_thin and network_thin_origin are identical
-                for param_ori, param in zip(special_networks_origins[k].parameters(), special_networks[k].parameters()):
-                    param.data.copy_(param_ori.data)
-                special_networks[k].set_alphas(_arch_param)
-
-            ranker_scores = []
-            for ranker, rank_func, kwargs in rankers_list:
-                origin_net = special_networks_origins.get(ranker, network_origin)
-                net = special_networks.get(ranker, network)
-
-                train_loader_, valid_loader_ = special_dataloaders.get(ranker, (train_loader, valid_loader))
-                origin_rank, rank = rank_func(train_loader_, valid_loader_, [origin_net, net])
-
-                percent_shift = round(kwargs["sign"] * (origin_rank - rank) / origin_rank, precision)
-                ranker_scores.append(percent_shift)
-            _scores.append(np.sum(ranker_scores))
-        edge_scores.append((edge_indexes, np.mean(_scores)))
-
-    edge_scores = sorted(edge_scores,
-                         key=lambda tup: tup[1])  # list of (cell_idx, edge_idx, op_idx), [ntk_rank, regions_rank]
-
-    edge2choice = defaultdict(list)  # (cell_idx, edge_idx): list of (cell_idx, edge_idx, op_idx) of length prune_number
-    for (cell_idx, edge_idx, op_idx), _ in edge_scores:
-        if len(edge2choice[(cell_idx, edge_idx)]) < prune_number:
-            edge2choice[(cell_idx, edge_idx)].append(op_idx)
-    for cell_edge in edge2choice:
-        cell_idx, edge_idx = cell_edge
-        for op_idx in edge2choice[cell_edge]:
-            arch_parameters[cell_idx].data[edge_idx, op_idx] = -INF
-
-    return arch_parameters
-
-    active_parameter_indexes = [(idx_ct, idx_edge, idx_op)
-                                for idx_ct in range(len(arch_parameters))
-                                for group_st, group_end in edge_groups
-                                for idx_edge in range(group_st, group_end)
-                                for idx_op in range(arch_parameters[idx_ct].shape[1])
-                                if group_end - group_st > num_per_group
-                                if alpha_active[idx_ct][idx_edge, idx_op] > 0  # op is active
-                                ]
-
-    ntk_all = []  # (ntk, (edge_idx, op_idx))
-    regions_all = []  # (regions, (edge_idx, op_idx))
-    choice2regions = {}  # (edge_idx, op_idx): regions
-    pbar = tqdm(total=int(sum(alpha.sum() for alpha in alpha_active)), position=0, leave=True)
-    assert edge_groups[-1][1] == len(arch_parameters[0])
-    for idx_ct in range(len(arch_parameters)):
-        # cell type (ct): normal or reduce
-        for idx_group in range(len(edge_groups)):
-            edge_group = edge_groups[idx_group]
-            # print("Pruning cell %s group %s.........."%("normal" if idx_ct == 0 else "reduction", str(edge_group)))
-            if edge_group[1] - edge_group[0] <= num_per_group:
-                # this group already meets the num_per_group requirement
-                pbar.update(1)
-                continue
-            for idx_edge in range(edge_group[0], edge_group[1]):
-                # edge
-                for idx_op in range(len(arch_parameters[idx_ct][idx_edge])):
-                    # op
-                    if alpha_active[idx_ct][idx_edge, idx_op] > 0:
-                        # this edge-op not pruned yet
-                        _arch_param = [alpha.detach().clone() for alpha in arch_parameters]
-                        _arch_param[idx_ct][idx_edge, idx_op] = -INF
-                        # ##### get ntk (score) ########
-                        network = get_cell_based_tiny_net(model_config).cuda().train()
-                        network.set_alphas(_arch_param)
-                        ntk_delta = []
-                        repeat = xargs.repeat
-                        for _ in range(repeat):
-                            # random reinit
-                            init_model(network_origin, xargs.init + "_fanout" if xargs.init.startswith(
-                                'kaiming') else xargs.init)  # for backward
-                            # make sure network_origin and network are identical
-                            for param_ori, param in zip(network_origin.parameters(), network.parameters()):
-                                param.data.copy_(param_ori.data)
-                            network.set_alphas(_arch_param)
-
-                            # NTK cond TODO #########
-                            ntk_origin, ntk = get_ntk_n(train_loader, [network_origin, network], recalbn=0,
-                                                        train_mode=True, num_batch=1)
-                            ntk_delta.append(round((ntk_origin - ntk) / ntk_origin, precision))
-                            # ####################
-
-                            # NNGP cond TODO #########
-                            # nnpg_origin, nnpg = get_nngp_n(train_loader, valid_loader, [network_origin, network], train_mode=True, num_batch=2)
-                            # ntk_delta.append(round(nnpg_origin - nnpg, precision))
-                            # ####################
-
-                        ntk_all.append([np.mean(ntk_delta), (idx_ct, idx_edge, idx_op)])  # change of ntk
-                        network.zero_grad()
-                        network_origin.zero_grad()
-                        #############################
-                        network_thin_origin = get_cell_based_tiny_net(model_config_thin).cuda()
-                        network_thin_origin.set_alphas(arch_parameters)
-                        network_thin_origin.train()
-                        network_thin = get_cell_based_tiny_net(model_config_thin).cuda()
-                        network_thin.set_alphas(_arch_param)
-                        network_thin.train()
-                        with torch.no_grad():
-                            _linear_regions = []
-                            repeat = xargs.repeat
-                            for _ in range(repeat):
-                                # random reinit
-                                init_model(network_thin_origin, xargs.init + "_fanin" if xargs.init.startswith(
-                                    'kaiming') else xargs.init)  # for forward
-                                # make sure network_thin and network_thin_origin are identical
-                                for param_ori, param in zip(network_thin_origin.parameters(),
-                                                            network_thin.parameters()):
-                                    param.data.copy_(param_ori.data)
-                                network_thin.set_alphas(_arch_param)
-                                #####
-                                lrc_model.reinit(models=[network_thin_origin, network_thin], seed=xargs.rand_seed)
-                                _lr, _lr_2 = lrc_model.forward_batch_sample()
-                                _linear_regions.append(round((_lr - _lr_2) / _lr, precision))  # change of #Regions
-                                lrc_model.clear()
-                            linear_regions = np.mean(_linear_regions)
-                            regions_all.append([linear_regions, (idx_ct, idx_edge, idx_op)])
-                            choice2regions[(idx_ct, idx_edge, idx_op)] = linear_regions
-                        #############################
-                        torch.cuda.empty_cache()
-                        del network_thin
-                        del network_thin_origin
-                        pbar.update(1)
-            # stop and prune this edge group
-            ntk_all = sorted(ntk_all, key=lambda tup: round_to(tup[0], precision),
-                             reverse=True)  # descending: we want to prune op to decrease ntk, i.e. to make ntk_origin > ntk
-            # print("NTK conds:", ntk_all)
-            rankings = {}  # dict of (cell_idx, edge_idx, op_idx): [ntk_rank, regions_rank]
-            for idx, data in enumerate(ntk_all):
-                if idx == 0:
-                    rankings[data[1]] = [idx]
-                else:
-                    if data[0] == ntk_all[idx - 1][0]:
-                        # same ntk as previous
-                        rankings[data[1]] = [rankings[ntk_all[idx - 1][1]][0]]
-                    else:
-                        rankings[data[1]] = [rankings[ntk_all[idx - 1][1]][0] + 1]
-            regions_all = sorted(regions_all, key=lambda tup: round_to(tup[0], precision),
-                                 reverse=False)  # ascending: we want to prune op to increase lr, i.e. to make lr < lr_2
-            # print("#Regions:", regions_all)
-            for idx, data in enumerate(regions_all):
-                if idx == 0:
-                    rankings[data[1]].append(idx)
-                else:
-                    if data[0] == regions_all[idx - 1][0]:
-                        # same #Regions as previous
-                        rankings[data[1]].append(rankings[regions_all[idx - 1][1]][1])
-                    else:
-                        rankings[data[1]].append(rankings[regions_all[idx - 1][1]][1] + 1)
-            rankings_list = [[k, v] for k, v in
-                             rankings.items()]  # list of (cell_idx, edge_idx, op_idx), [ntk_rank, regions_rank]
-            # ascending by sum of two rankings
-            rankings_sum = sorted(rankings_list, key=lambda tup: sum(tup[1]),
-                                  reverse=False)  # list of (cell_idx, edge_idx, op_idx), [ntk_rank, regions_rank]
-            choices = [item[0] for item in rankings_sum[:-num_per_group]]
-            # print("Final Ranking:", rankings_sum)
-            # print("Pruning Choices:", choices)
-            for (cell_idx, edge_idx, op_idx) in choices:
-                arch_parameters[cell_idx].data[edge_idx, op_idx] = -INF
-            # reinit
-            ntk_all = []  # (ntk, (edge_idx, op_idx))
-            regions_all = []  # (regions, (edge_idx, op_idx))
-            choice2regions = {}  # (edge_idx, op_idx): regions
-
-    return arch_parameters
-
 
 def main(xargs):
     PID = os.getpid()
@@ -445,10 +241,10 @@ def main(xargs):
     if xargs.timestamp == 'none':
         xargs.timestamp = "{:}".format(time.strftime('%h-%d-%C_%H-%M-%s', time.gmtime(time.time())))
 
-    xargs.save_dir = xargs.save_dir + \
-                     "/repeat%d-prunNum%d-prec%d-%s-batch%d" % (
-                         xargs.repeat, xargs.prune_number, xargs.precision, xargs.init, xargs.batch_size) + \
-                     "/{:}/seed{:}".format(xargs.timestamp, xargs.rand_seed)
+    xargs.save_dir = os.path.join(xargs.save_dir,
+                "repeat{}-prunNum{}-{}-batch{}".format(xargs.repeat, xargs.prune_number, xargs.init, xargs.batch_size),
+                str(xargs.timestamp),
+                "seed{}".format(xargs.rand_seed))
 
     # checking ranking list
     rankers_list = parse_rankers_config(xargs.rankers_config)
@@ -554,7 +350,6 @@ def main(xargs):
                                           train_loader, valid_loader, special_dataloaders,
                                           init=xargs.init,
                                           repeat=xargs.repeat,
-                                          precision=xargs.precision,
                                           prune_number=xargs.prune_number
                                           )
         # rebuild supernet
@@ -566,14 +361,15 @@ def main(xargs):
         logger.log('operators remaining (1s) and prunned (0s)\n{:}'.format(
             '\n'.join([str((alpha > -INF).int()) for alpha in network.get_alphas()])))
 
-    # TODO: check if this part needed for DARTS
     if xargs.search_space_name == 'darts':
         print("===>>> Prune Edge Groups...")
-        arch_parameters = prune_func_rank_group(xargs, arch_parameters, model_config, model_config_thin, train_loader,
-                                                valid_loader, lrc_model, search_space,
-                                                edge_groups=[(0, 2), (2, 5), (5, 9), (9, 14)], num_per_group=2,
-                                                precision=xargs.precision,
-                                                )
+        arch_parameters = prune_func_rank(rankers_list, arch_parameters, model_config, special_model_configs,
+                                          train_loader, valid_loader, special_dataloaders,
+                                          init=xargs.init,
+                                          repeat=xargs.repeat,
+                                          edge_groups=[(0, 2), (2, 5), (5, 9), (9, 14)],
+                                          prune_number=2
+                                          )
         network = get_cell_based_tiny_net(model_config)
         network = network.cuda()
         network.set_alphas(arch_parameters)
@@ -619,8 +415,6 @@ if __name__ == '__main__':
     parser.add_argument('--arch_nas_dataset', type=str,
                         help='The path to load the nas-bench-201 architecture dataset (tiny-nas-benchmark).')
     parser.add_argument('--rand_seed', type=int, help='manual seed')
-    parser.add_argument('--precision', type=int, default=3,
-                        help='precision for % of changes of ranking function output')
     parser.add_argument('--prune_number', type=int, default=1,
                         help='number of operator to prune on each edge per round')
     parser.add_argument('--repeat', type=int, default=3, help='repeat calculation of ranking functions')

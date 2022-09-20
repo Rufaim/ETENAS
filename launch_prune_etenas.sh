@@ -54,7 +54,7 @@ do
       python3 ./prune_etenas.py --save_dir "${SAVE_FOLDER}/${method[0]}/${output_path}" --max_nodes 4 \
         --dataset ${dataset} --data_path "${BASE_DATAPATH}/${data_path}" --search_space_name nas-bench-201 --super_type basic \
         --arch_nas_dataset ${BASE_DATAPATH}/NAS-Bench-201-v1_0-e61699-simple.pkl --track_running_stats 1 --workers 0 \
-        --precision 3 --init kaiming_norm --repeat 3 --batch_size 72 --prune_number 1 \
+        --init kaiming_norm --repeat 3 --batch_size 72 --prune_number 1 \
         --rankers_config "configs/rankers_configs/${method[1]}"
     done
   done

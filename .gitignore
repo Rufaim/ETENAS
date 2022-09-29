@@ -43,3 +43,7 @@ NAS_data
 *.pkl
 *.png
 *.tex
+*.txt
+
+# pictures for paper
+plots_*/

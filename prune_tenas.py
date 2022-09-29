@@ -423,7 +423,7 @@ def main(xargs):
 
     end_time = time.time()
     logger.log('\n' + '-'*100)
-    logger.log("Time spent: %d s"%(end_time - start_time))
+    logger.log("Time spent: %d sec"%(end_time - start_time))
     # check the performance from the architecture dataset
 
     # to free some memory

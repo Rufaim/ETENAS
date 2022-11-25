@@ -108,15 +108,6 @@ def correlation_pearson(accuracy, metric):
 def correlation_kt(accuracy, metric):
     return kendalltau(accuracy, metric)[0]
 
-def r2_score(accuracy, metric):
-    accuracy = MinMaxScaler().fit_transform(accuracy[:,None])[:,0]
-    metric = MinMaxScaler().fit_transform(metric[:,None])
-    feats = np.concatenate([metric, np.log(metric+1), np.sqrt(metric), metric**2],axis=-1)
-    regressor = HuberRegressor().fit(feats, accuracy)
-    reg_score = regressor.score(feats[~regressor.outliers_], accuracy[~regressor.outliers_])
-    return reg_score
-
-
 def main(input: str, output: str):
     parser = MetricsParser()
 
@@ -136,19 +127,17 @@ def main(input: str, output: str):
 
             corr_p = correlation_pearson(accuracy, metric)
             corr_kt = correlation_kt(accuracy, metric)
-            r2 = r2_score(accuracy, metric)
 
             experiments[experiment][dataset] = {
                 "time": float(data["time_per_iteration"]),
                 "correlation_pearson": corr_p,
                 "correlation_kt": corr_kt,
-                "r2": r2,
             }
 
-    table_head =r"""	\begin{tabular}{l|c|c|c|c|c|c|c|c|c}
+    table_head =r"""	\begin{tabular}{l|c|c|c|c|c|c}
         \hline
-        \multirow{2}{*}{Methods} & \multicolumn{3}{c|}{CIFAR-10} & \multicolumn{3}{c|}{CIFAR-100} & \multicolumn{3}{c}{ImageNet16-120} \\ \cline{2-10}
-        & Kend-$\tau$ & $R^2_{\text{adj}}$ & Time (sec) & Kend-$\tau$ & $R^2_{\text{adj}}$ & Time (sec) & Kend-$\tau$ & $R^2_{\text{adj}}$ & Time (sec) \\ \hline
+        \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{CIFAR-10} & \multicolumn{2}{c|}{CIFAR-100} & \multicolumn{2}{c}{ImageNet16-120} \\ \cline{2-7}
+        & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) \\ \hline
     """
     table_bottom =r"\end{tabular}"
 
@@ -160,7 +149,7 @@ def main(input: str, output: str):
             if description is None:
                 to_write.append("& & ")
                 continue
-            to_write.append("{correlation_kt:.03f} & {r2:.03f} & {time:.02f} & ".format(**description))
+            to_write.append("{correlation_kt:.03f} & {time:.02f} & ".format(**description))
         to_write[-1] = to_write[-1][:-2]
         to_write.append(r"\\ \hline")
         to_write.append("\n")

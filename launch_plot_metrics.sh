@@ -6,21 +6,15 @@ BASE_DATAPATH=${3:-"./NAS_data"}
 
 source ./venv/bin/activate
 
-#methods=("cond_ntk_v1" "acc_nngp_v1"
-#        "acc_ntk" "mse_ntk" "lga_ntk" "fro_ntk" "mean_ntk" "cond_ntk" "eig_ntk"
-#        "acc_ntk_corr" "mse_ntk_corr" "lga_ntk_corr" "fro_ntk_corr" "mean_ntk_corr" "cond_ntk_corr" "eig_ntk_corr"
-#        "acc_nngp" "mse_nngp" "lga_nngp" "fro_nngp" "mean_nngp" "cond_nngp" "eig_nngp"
-#        "acc_nngp_corr" "mse_nngp_corr" "lga_nngp_corr" "fro_nngp_corr" "mean_nngp_corr" "cond_nngp_corr" "eig_nngp_corr"
-#        "regs_dist_full" "regs_dist_max" "regs_dist_mean")
+methods=( "synflow" "logsynflow" "zen_score"
+        "acc_ntk" "mse_ntk" "lga_ntk" "fro_ntk" "mean_ntk" "cond_ntk" "eig_ntk"
+        "acc_ntk_corr" "mse_ntk_corr" "lga_ntk_corr" "fro_ntk_corr" "mean_ntk_corr" "cond_ntk_corr" "eig_ntk_corr"
+        "acc_nngp" "mse_nngp" "lga_nngp" "fro_nngp" "mean_nngp" "cond_nngp" "eig_nngp"
+        "acc_nngp_corr" "mse_nngp_corr" "lga_nngp_corr" "fro_nngp_corr" "mean_nngp_corr" "cond_nngp_corr" "eig_nngp_corr"
+        "acc_nngp_read" "mse_nngp_read" "lga_nngp_read" "fro_nngp_read" "mean_nngp_read" "cond_nngp_read" "eig_nngp_read"
+        "acc_nngp_read_corr" "mse_nngp_read_corr" "lga_nngp_read_corr" "fro_nngp_read_corr" "mean_nngp_read_corr" "cond_nngp_read_corr" "eig_nngp_read_corr"
+        "regs_dist_full" "regs_dist_max" "regs_dist_mean")
 
-#methods=("acc_ntk_corr" "mse_ntk_corr" "lga_ntk_corr" "fro_ntk_corr" "mean_ntk_corr" "cond_ntk_corr" "eig_ntk_corr"
-#        "acc_nngp" "mse_nngp" "lga_nngp" "fro_nngp" "mean_nngp" "cond_nngp" "eig_nngp"
-#        "acc_nngp_corr" "mse_nngp_corr" "lga_nngp_corr" "fro_nngp_corr" "mean_nngp_corr" "cond_nngp_corr" "eig_nngp_corr"
-#        "acc_nngp_read" "mse_nngp_read" "lga_nngp_read" "fro_nngp_read" "mean_nngp_read" "cond_nngp_read" "eig_nngp_read"
-#        "acc_nngp_read_corr" "mse_nngp_read_corr" "lga_nngp_read_corr" "fro_nngp_read_corr" "mean_nngp_read_corr" "cond_nngp_read_corr" "eig_nngp_read_corr"
-#        "regs_dist_full" "regs_dist_max" "regs_dist_mean")
-methods=( "acc_nngp" "mse_nngp" "lga_nngp" "fro_nngp" "mean_nngp" "cond_nngp" "eig_nngp"
-        "acc_nngp_corr" "mse_nngp_corr" "lga_nngp_corr" "fro_nngp_corr" "mean_nngp_corr" "cond_nngp_corr" "eig_nngp_corr" )
 
 batch_size_default=72
 
@@ -42,7 +36,7 @@ do
     python3 ./plot_metric_distribution.py --save_path ${SAVE_FOLDER} --max_nodes 4 \
                               --dataset ${dataset} --data_path "${BASE_DATAPATH}/${data_path}" \
                               --arch_nas_dataset "${BASE_DATAPATH}/NAS-Bench-201-v1_0-e61699-simple.pkl" \
-                              --track_running_stats 1 --workers 0 --rand_seed 0 --precision 3 --init kaiming_normal \
+                              --track_running_stats 1 --workers 0 --rand_seed 0 --precision 3 --init kaiming_norm \
                                --repeat 3 --batch_size ${batch_size} --num_samples ${NUM_SAMPLES} --method ${method}
   done
 done

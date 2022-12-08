@@ -4,8 +4,6 @@ import argparse
 from glob import glob
 from itertools import chain
 from collections import defaultdict
-from sklearn.linear_model import HuberRegressor
-from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import kendalltau
 
 class MetricsParser(object):
@@ -14,6 +12,9 @@ class MetricsParser(object):
         "cond_ntk_v1": ("Condition number of NTK (draft)\cite{chen2020tenas}", 11),
         "regs_num": ("Expected number of ReLU regions\cite{chen2020tenas}", 12),
         "acc_nngp_v1": ("Accuracy of NNGP (draft)\cite{park2020towards}", 13),
+        "synflow": ("SynFlow\cite{tanaka2020pruning}", 14),
+        "logsynflow": ("LogSynFlow\cite{cavagnero2022freerea}", 15),
+        "zen_score": ("Zen-Score\cite{ming_zennas_iccv2021}", 16),
 
         "acc_ntk": ("Accuracy of NTK\cite{jacot2018neural}", 21),
         "mse_ntk": ("MSEA of NTK", 22),

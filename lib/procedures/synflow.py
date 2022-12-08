@@ -18,7 +18,6 @@ def nonlinearize(net, signs):
         if "weight_mask" not in name:
             param.mul_(signs[name])
 
-
 def synflow(train_loader, networks, train_mode=False, train_iters=-1, verbose=False):
     return synflow_(False, train_loader, networks, train_mode, train_iters, verbose)
 
@@ -60,7 +59,7 @@ def synflow_(use_log, train_loader, networks, train_mode=False, train_iters=-1, 
                 if layer.weight.grad is not None:
                     g = layer.weight.grad
                     if use_log:
-                        g = torch.log(torch.abs(g))
+                        g = torch.abs(torch.log(torch.abs(g)+1e-7))
                     synflow += torch.sum(torch.abs(layer.weight * g))
 
         nonlinearize(net, signs)

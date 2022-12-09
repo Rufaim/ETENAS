@@ -59,7 +59,7 @@ def synflow_(use_log, train_loader, networks, train_mode=False, train_iters=-1, 
                 if layer.weight.grad is not None:
                     g = layer.weight.grad
                     if use_log:
-                        g = torch.abs(torch.log(torch.abs(g)+1e-7))
+                        g = torch.abs(torch.log(torch.abs(g)+1))
                     synflow += torch.sum(torch.abs(layer.weight * g))
 
         nonlinearize(net, signs)

@@ -15,7 +15,7 @@ lib_dir = (Path(__file__).parent / 'lib').resolve()
 if str(lib_dir) not in sys.path: sys.path.insert(0, str(lib_dir))
 from datasets import get_datasets, get_nas_search_loaders
 from procedures import prepare_seed, prepare_logger, MetricType, get_linear_region_counter_v2, get_nngp_n_v2, \
-    regional_division_counter, RegionDivisionScoreType
+    regional_division_counter, RegionDivisionScoreType, zen_score
 from utils import get_model_infos, init_model, round_to, is_single_path
 from log_utils import time_string
 from models import get_cell_based_tiny_net, get_search_spaces
@@ -33,6 +33,7 @@ class Ranker(Enum):
     NNGP = "NNGP"
     REGS_num = "Expected number of ReLU regions"
     REGS_dist = "ReLU regions distance"
+    ZEN = "Zen-Score"
 
     def __str__(self):
         return self.value
@@ -71,6 +72,8 @@ class Ranker(Enum):
             output_args["batch"] = args.get("batch", 1000)
         if self is Ranker.REGS_dist:
             output_args["batch"] = args.get("batch", 150)
+        if self is Ranker.ZEN:
+            output_args["train_mode"] = args.get("train_mode", False)
         return output_args
 
 
@@ -127,6 +130,8 @@ def parse_rankers_config(path):
                                                                            train_mode=kwargs["train_mode"],
                                                                            score_type=RegionDivisionScoreType.FULL,
                                                                            num_batch=kwargs["num_batch"], verbose=False)
+        elif r_type is Ranker.ZEN:
+            func = lambda train_loader, _, nets: zen_score(train_loader, nets, train_mode=kwargs["train_mode"])
         else:
             raise RuntimeError("invalid ranker")
         rankers.append((r_type, func, kwargs))

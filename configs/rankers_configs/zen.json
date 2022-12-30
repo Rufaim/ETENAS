@@ -1,0 +1,9 @@
+[
+  {
+    "type": "Zen-Score",
+    "args": {
+      "train_mode": false,
+      "corr_sign": 1
+    }
+  }
+]

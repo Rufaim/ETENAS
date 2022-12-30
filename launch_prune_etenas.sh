@@ -15,6 +15,7 @@ declare -a methods=(
     "expected_relu_500,exp_500.json"
     "expected_relu_100,exp_100.json"
     "lga,lga.json"
+    "zen,zen.json"
     "relu_distance+eigenvalue_score,dist_eig.json"
     "expected_relu_100+relu_distance,exp_100_dist.json"
     "expected_relu_100+eigenvalue_score,exp_100_eig.json"
@@ -33,7 +34,6 @@ declare -a methods=(
     "mean+expected_relu_100+relu_distance,mean_exp_100_dist.json"
     "all,all.json"
 )
-
 
 for elem in ${methods[@]}
 do

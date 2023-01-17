@@ -5,4 +5,6 @@ from .nngp import get_nngp_n, get_nngp_n_v2
 from .regional_division_counter import regional_division_counter, RegionDivisionScoreType
 from .synflow import synflow, logsynflow
 from .zen_score import zen_score
+from .grasp import grasp
+from .snip import snip
 from .common_methods import MetricType

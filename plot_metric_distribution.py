@@ -16,7 +16,8 @@ lib_dir = (Path(__file__).parent / 'lib').resolve()
 if str(lib_dir) not in sys.path: sys.path.insert(0, str(lib_dir))
 from datasets import get_datasets, get_nas_search_loaders
 from procedures import prepare_seed, MetricType, get_linear_region_counter_v2, get_ntk_n, get_ntk_n_v2, \
-        get_nngp_n, get_nngp_n_v2, regional_division_counter, RegionDivisionScoreType, synflow, logsynflow, zen_score
+        get_nngp_n, get_nngp_n_v2, regional_division_counter, RegionDivisionScoreType, synflow, logsynflow, zen_score, \
+        grasp, snip
 from models import get_cell_based_tiny_net, get_search_spaces
 from nas_201_api import SimpleApi as API
 from prune_tenas import init_model
@@ -125,7 +126,9 @@ METHODS_LIST = [
 
     MethodDescriptor("SynFlow", "synflow", lambda train_loader, _, net: synflow(train_loader, [net], train_mode=True)[0]),
     MethodDescriptor("LogSynFlow", "logsynflow", lambda train_loader, _, net: logsynflow(train_loader, [net], train_mode=True)[0]),
-    MethodDescriptor("Zen-Score", "zen_score", lambda train_loader, _, net: zen_score(train_loader, [net], train_mode=False)[0])
+    MethodDescriptor("Zen-Score", "zen_score", lambda train_loader, _, net: zen_score(train_loader, [net], train_mode=False)[0]),
+    MethodDescriptor("Grasp", "grasp", lambda train_loader, _, net: grasp(train_loader, [net], train_mode=True)[0]),
+    MethodDescriptor("Snip", "snip", lambda train_loader, _, net: snip(train_loader, [net], train_mode=True)[0]),
 ]
 
 

@@ -6,7 +6,7 @@ BASE_DATAPATH=${3:-"./NAS_data"}
 
 source ./venv/bin/activate
 
-methods=( "synflow" "logsynflow" "zen_score"
+methods=( "snip" "grasp" "fisher" "synflow" "logsynflow" "zen_score"
         "acc_ntk" "mse_ntk" "lga_ntk" "fro_ntk" "mean_ntk" "cond_ntk" "eig_ntk"
         "acc_ntk_corr" "mse_ntk_corr" "lga_ntk_corr" "fro_ntk_corr" "mean_ntk_corr" "cond_ntk_corr" "eig_ntk_corr"
         "acc_nngp" "mse_nngp" "lga_nngp" "fro_nngp" "mean_nngp" "cond_nngp" "eig_nngp"
@@ -14,7 +14,6 @@ methods=( "synflow" "logsynflow" "zen_score"
         "acc_nngp_read" "mse_nngp_read" "lga_nngp_read" "fro_nngp_read" "mean_nngp_read" "cond_nngp_read" "eig_nngp_read"
         "acc_nngp_read_corr" "mse_nngp_read_corr" "lga_nngp_read_corr" "fro_nngp_read_corr" "mean_nngp_read_corr" "cond_nngp_read_corr" "eig_nngp_read_corr"
         "regs_dist_full" "regs_dist_max" "regs_dist_mean")
-
 
 batch_size_default=72
 

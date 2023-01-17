@@ -43,7 +43,7 @@ def fisher(train_loader, networks, train_mode=False, train_iters=-1, verbose=Fal
                 # variables/op needed for fisher computation
                 layer.fisher = 0.0
                 layer.act = 0.0
-                layer.dummy = torch.nn.Identity()
+                layer.dummy = torch.nn.Identity().to(device)
 
                 # replace forward method of conv/linear
                 if isinstance(layer, torch.nn.Conv2d):
@@ -61,7 +61,7 @@ def fisher(train_loader, networks, train_mode=False, train_iters=-1, verbose=Fal
                         else:
                             g_nk = act * grad
                         del_k = g_nk.pow(2).mean(0).mul(0.5)
-                        layer.fisher += del_k
+                        layer.fisher += del_k.cpu().detach()
                         del layer.act  # without deleting this, a nasty memory leak occurs! related: https://discuss.pytorch.org/t/memory-leak-when-using-forward-hook-and-backward-hook-simultaneously/27555
 
                     return hook
@@ -72,13 +72,17 @@ def fisher(train_loader, networks, train_mode=False, train_iters=-1, verbose=Fal
         net_copy.zero_grad()
         output = net_copy(inputs)
 
+        assert isinstance(output, tuple)
+        output = output[1]
+
         loss = loss_func(output, targets)
         loss.backward()
 
         fisher = 0.0
         for layer in net_copy.modules():
-            if layer.fisher is not None:
-                fisher += torch.sum(torch.abs(layer.fisher.cpu().detach()))
+            if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+                if layer.fisher is not None:
+                    fisher += torch.sum(torch.abs(layer.fisher.cpu().detach()))
         network_fisher.append(fisher)
 
         del net_copy

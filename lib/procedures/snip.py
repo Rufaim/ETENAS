@@ -36,7 +36,7 @@ def snip(train_loader, networks, train_mode=False, train_iters=-1, verbose=False
 
         for layer in net_copy.modules():
             if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
-                layer.weight_mask = torch.nn.Parameter(torch.ones_like(layer.weight))
+                layer.weight_mask = torch.nn.Parameter(torch.ones_like(layer.weight)).to(device)
                 layer.weight.requires_grad = False
 
             # Override the forward methods:
@@ -48,15 +48,19 @@ def snip(train_loader, networks, train_mode=False, train_iters=-1, verbose=False
 
         # Compute gradients (but don't apply them)
         net_copy.zero_grad()
-        output = net(inputs)
+        output = net_copy(inputs)
+
+        assert isinstance(output, tuple)
+        output = output[1]
 
         loss = loss_func(output, targets)
         loss.backward()
 
         snip = 0.0
         for layer in net_copy.modules():
-            if layer.weight_mask.grad is not None:
-                snip += torch.sum(torch.abs(layer.weight_mask.grad))
+            if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+                if layer.weight_mask.grad is not None:
+                    snip += torch.sum(torch.abs(layer.weight_mask.grad)).item()
         network_snip.append(snip)
 
         del net_copy

@@ -24,15 +24,41 @@ def grasp(train_loader, networks, train_mode=False, train_iters=-1, verbose=Fals
             if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
                 weights.append(layer.weight)
 
+        # first pass
         net.zero_grad()
         output = net(inputs)
+
+        assert isinstance(output, tuple)
+        output = output[1]
+
         loss = loss_func(output, targets)
-        grad_w = list(torch.autograd.grad(loss, weights, allow_unused=True))
+        grad_w = torch.autograd.grad(loss, weights, allow_unused=True)
+
+        # second pass
+        net.zero_grad()
+        output = net(inputs)
+
+        assert isinstance(output, tuple)
+        output = output[1]
+
+        loss = loss_func(output, targets)
+
+        grad_f = torch.autograd.grad(loss, weights, create_graph=True, allow_unused=True)
+
+        # accumulate gradients computed in previous step and call backwards
+        z, count = 0, 0
+        for layer in net.modules():
+            if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+                if grad_w[count] is not None:
+                    z += (grad_w[count].data * grad_f[count]).sum()
+                count += 1
+        z.backward()
 
         grasp = 0.0
         for layer in net.modules():
-            if layer.weight.grad is not None:
-                grasp += torch.sum(-layer.weight.data * layer.weight.grad)
+            if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear):
+                if layer.weight.grad is not None:
+                    grasp += torch.sum(-layer.weight.data * layer.weight.grad).item()
 
         network_grasp.append(grasp)
 

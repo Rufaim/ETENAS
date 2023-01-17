@@ -6,13 +6,12 @@ from .slight_train import slight_train
 
 
 def snip_forward_conv2d(self, x):
-    return F.conv2d(x, self.weight * self.weight_mask, self.bias,
+    return torch.nn.functional.conv2d(x, self.weight * self.weight_mask, self.bias,
                     self.stride, self.padding, self.dilation, self.groups)
 
 
 def snip_forward_linear(self, x):
-    return F.linear(x, self.weight * self.weight_mask, self.bias)
-
+    return torch.nn.functional.linear(x, self.weight * self.weight_mask, self.bias)
 
 
 def snip(train_loader, networks, train_mode=False, train_iters=-1, verbose=False):

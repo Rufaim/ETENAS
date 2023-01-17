@@ -7,4 +7,5 @@ from .synflow import synflow, logsynflow
 from .zen_score import zen_score
 from .grasp import grasp
 from .snip import snip
+from .fisher import fisher
 from .common_methods import MetricType

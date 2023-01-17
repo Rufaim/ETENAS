@@ -5,6 +5,7 @@ BASE_DATAPATH=${2:-"./NAS_data"}
 
 source ./venv/bin/activate
 declare -a methods=(
+    "zen,zen.json"
     "mean,mean.json"
     "frobenius,frob.json"
     "relu_distance,dist.json"

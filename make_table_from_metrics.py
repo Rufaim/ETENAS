@@ -1,6 +1,7 @@
 import numpy as np
 import re
 import argparse
+from enum import Enum
 from glob import glob
 from itertools import chain
 from collections import defaultdict
@@ -12,9 +13,12 @@ class MetricsParser(object):
         "cond_ntk_v1": ("Condition number of NTK (draft)\cite{chen2020tenas}", 11),
         "regs_num": ("Expected number of ReLU regions\cite{chen2020tenas}", 12),
         "acc_nngp_v1": ("Accuracy of NNGP (draft)\cite{park2020towards}", 13),
-        "synflow": ("SynFlow\cite{tanaka2020pruning}", 14),
-        "logsynflow": ("LogSynFlow\cite{cavagnero2022freerea}", 15),
-        "zen_score": ("Zen-Score\cite{ming_zennas_iccv2021}", 16),
+        "snip": ("Snip\cite{abdelfattah2021zerocost}", 14),
+        "grasp": ("Grasp\cite{abdelfattah2021zerocost}", 15),
+        "fisher": ("Fisher\cite{abdelfattah2021zerocost}", 16),
+        "synflow": ("SynFlow\cite{tanaka2020pruning}", 17),
+        "logsynflow": ("LogSynFlow\cite{cavagnero2022freerea}", 18),
+        "zen_score": ("Zen-Score\cite{ming_zennas_iccv2021}", 19),
 
         "acc_ntk": ("Accuracy of NTK\cite{jacot2018neural}", 21),
         "mse_ntk": ("MSEA of NTK", 22),
@@ -102,6 +106,12 @@ class MetricsParser(object):
         experiment, position = MetricsParser.KNOWN_EXPERIMENTS.get(experiment, (experiment, 10000))
         return experiment, dataset, position
 
+class TableType(Enum):
+    CORRELATION = "correlation"
+    ACCURACY_RESULTS = "accuracy_results"
+
+    def __str__(self):
+        return self.value
 
 def correlation_pearson(accuracy, metric):
     return np.corrcoef(accuracy, metric)[0, 1]
@@ -109,7 +119,12 @@ def correlation_pearson(accuracy, metric):
 def correlation_kt(accuracy, metric):
     return kendalltau(accuracy, metric)[0]
 
-def main(input: str, output: str):
+def means_n_vars(d):
+    mean = np.mean(d)
+    std = np.std(d)
+    return f"{mean:.02f}({std:.02f})"
+
+def main(input: str, table_type: TableType, output: str):
     parser = MetricsParser()
 
     experiments = defaultdict(dict)
@@ -123,24 +138,39 @@ def main(input: str, output: str):
         for dataset in experiments[experiment]:
             path = experiments[experiment][dataset]
             data = np.load(path, allow_pickle=True)
+            times = data["times"]
             metric = data["metric"]
             accuracy = data["accuracy"]
 
             corr_p = correlation_pearson(accuracy, metric)
             corr_kt = correlation_kt(accuracy, metric)
 
+            acc = means_n_vars(accuracy)
+            time = means_n_vars(times)
+
             experiments[experiment][dataset] = {
-                "time": float(data["time_per_iteration"]),
+                "time": float(np.mean(times)),
+                "time_v": time,
                 "correlation_pearson": corr_p,
                 "correlation_kt": corr_kt,
+                "accuracy": acc,
             }
-
-    table_head =r"""	\begin{tabular}{l|c|c|c|c|c|c}
-        \hline
-        \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{CIFAR-10} & \multicolumn{2}{c|}{CIFAR-100} & \multicolumn{2}{c}{ImageNet16-120} \\ \cline{2-7}
-        & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) \\ \hline
-    """
+    if table_type is TableType.CORRELATION:
+        table_head =r"""	\begin{tabular}{l|c|c|c|c|c|c}
+            \hline
+            \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{CIFAR-10} & \multicolumn{2}{c|}{CIFAR-100} & \multicolumn{2}{c}{ImageNet16-120} \\ \cline{2-7}
+            & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) & Kend-$\tau$ & Time (sec) \\ \hline
+        """
+    elif table_type is TableType.ACCURACY_RESULTS:
+        table_head = r"""	\begin{tabular}{l|c|c|c|c|c|c}
+            \hline
+            \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{CIFAR-10} & \multicolumn{2}{c|}{CIFAR-100} & \multicolumn{2}{c}{ImageNet16-120} \\ \cline{2-7}
+            & Accuracy & Time (sec) & Accuracy & Time (sec) & Accuracy & Time (sec) \\ \hline
+        """
+    else:
+        raise RuntimeError("invalid table type")
     table_bottom =r"\end{tabular}"
+
 
     table_lines = []
     for experiment in experiments:
@@ -150,7 +180,13 @@ def main(input: str, output: str):
             if description is None:
                 to_write.append("& & ")
                 continue
-            to_write.append("{correlation_kt:.03f} & {time:.02f} & ".format(**description))
+            if table_type is TableType.CORRELATION:
+                line = "{correlation_kt:.03f} & {time:.02f} & "
+            elif table_type is TableType.ACCURACY_RESULTS:
+                line = "{accuracy} & {time_v} & "
+            else:
+                raise RuntimeError("invalid table type")
+            to_write.append(line.format(**description))
         to_write[-1] = to_write[-1][:-2]
         to_write.append(r"\\ \hline")
         to_write.append("\n")
@@ -166,10 +202,12 @@ def main(input: str, output: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("LaTeX metric table builder")
     parser.add_argument("-o", "--output", type=str, default="table.tex", help="output file with table")
+    parser.add_argument("-t", "--table_type", type=TableType, default=TableType.CORRELATION, choices=list(TableType), help="set table type")
     parser.add_argument("input", nargs="+", type=str, help="input mask to npz files")
     args = parser.parse_args()
 
     output = args.output
+    table_type = args.table_type
     input = chain(*[glob(inp) for inp in args.input])
 
-    main(input, output)
+    main(input, table_type, output)

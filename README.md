@@ -3,21 +3,19 @@
 [![MIT licensed](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE.md)
 
 # Installation
-* Clone this repo
-* Install dependencies:
+1. Clone this repo
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-
-# Usage
-### 0. Prepare the dataset
+3.Prepare the dataset
+* Please follow the guideline [here](https://github.com/D-X-Y/AutoDL-Projects#requirements-and-preparation) to prepare ImageNet16 dataset.
 * Download NAS-Bench-201 `NAS-Bench-201-v1_0-e61699.pth` from [here](https://github.com/D-X-Y/NAS-Bench-201) and generate simplified API
 ```bash
 python3 -m lib/nas_201_api -p <path to NAS-Bench-201-v1_0-e61699.pth> -o NAS_data/NAS-Bench-201-v1_0-e61699-simple.pkl
 ```
-* Download DARTS JSONs from [here](https://github.com/facebookresearch/nds)
-* Please follow the guideline [here](https://github.com/D-X-Y/AutoDL-Projects#requirements-and-preparation) to prepare ImageNet dataset, and also download NAS-Bench-201 database.
 
+# Usage
 ### 1. Search
 #### [NAS-Bench-201 Space](https://openreview.net/forum?id=HJxyZkBKDr)
 ```python
@@ -34,14 +32,14 @@ python3 prune_etenas.py --save_dir ./output/prune-darts/ImageNet16 --max_nodes 4
 
 ### 2. Evaluation
 * For architectures searched on `nas-bench-201`, the accuracies are immediately available at the end of search (from the console output).
-* For architectures searched on `darts`, please use [DARTS_evaluation](https://github.com/chenwydj/DARTS_evaluation) for training the searched architecture from scratch and evaluation.
+* For architectures searched on `darts`, please use [DARTS_evaluation](https://github.com/chenwydj/DARTS_evaluation) for training the searched architecture from scratch and evaluation. You can use [`make_list_of_genotypes.py`](https://github.com/Rufaim/ETENAS/blob/master/make_list_of_genotypes.py) to aggregate all found genotypes for DARTS.
 
 
-# Citation
-```
-mock citation
-```
+[//]: # (# Citation)
+[//]: # (```)
+[//]: # (mock citation)
+[//]: # (```)
 
 # Acknowledgement
-* Code base from [NAS-Bench-201](https://github.com/D-X-Y/AutoDL-Projects/blob/master/docs/NAS-Bench-201.md).
-* Code base from [TENAS](https://github.com/VITA-Group/TENAS)
+* Code for [NAS-Bench-201](https://github.com/D-X-Y/AutoDL-Projects/blob/master/docs/NAS-Bench-201.md).
+* Code for [TENAS](https://github.com/VITA-Group/TENAS)
